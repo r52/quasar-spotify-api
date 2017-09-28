@@ -1,0 +1,36 @@
+@import url('https://fonts.googleapis.com/css?family=Roboto');
+
+body {
+    font-family: 'Roboto', sans-serif;
+    user-select: none;
+    user-drag: none;
+    font-size: 50px;
+    background-color: transparent;
+    overflow: hidden;
+    color: #fff;
+    text-shadow: 2px 2px 2px #000;
+}
+
+.album_cover {
+  background-repeat: no-repeat;
+  background-image: url();
+  height: 150px;
+  width: 150px;
+  background-size: 150px 150px;
+  float: left;
+  box-shadow: 2px 2px 5px #000;
+  margin-right: 20px;
+}
+
+.artist,
+.track {
+  text-transform: uppercase;
+}
+
+.artist {
+  padding-top: 20px;
+}
+
+.track {
+  font-size: 30px;
+}

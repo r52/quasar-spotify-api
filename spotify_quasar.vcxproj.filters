@@ -29,15 +29,19 @@
     <ClCompile Include="spotify_quasar.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="spotifyquasar.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Debug\moc_spotifyquasar.cpp">
+      <Filter>Generated Files</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Release\moc_spotifyquasar.cpp">
+      <Filter>Generated Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="spotify_quasar.h">
+    <CustomBuild Include="spotifyquasar.h">
       <Filter>Header Files</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="spotify_quasar_global.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
+    </CustomBuild>
   </ItemGroup>
 </Project>

@@ -96,45 +96,65 @@ void SpotifyQuasar::handleResponse(QNetworkReply* reply)
             }
             else if (cmd == "status")
             {
-                m_response["album_art_status"] = json;
-
-                // Get album art
-                QUrl url("https://open.spotify.com/oembed");
-
-                QUrlQuery query;
-
                 auto track = json["track"].toObject();
                 auto album = track["album_resource"].toObject();
-                query.addQueryItem("url", album["uri"].toString());
 
-                url.setQuery(query);
+                // Only make the album cover request if not cached
+                if (m_albumcovercache.contains(album["uri"].toString()))
+                {
+                    album["thumbnail_url"]  = *(m_albumcovercache.take(album["uri"].toString()));
+                    track["album_resource"] = album;
+                    json["track"]           = track;
+                    m_response["status"]    = json;
 
-                QNetworkRequest request;
-                request.setUrl(url);
-                request.setAttribute(SPOTIFY_COMMAND, "album_art_status");
+                    quasar_signal_data_ready(m_handle, "status");
+                }
+                else
+                {
+                    m_response["album_art_status"] = json;
 
-                m_manager->get(request);
+                    // Get album art
+                    QUrl url("https://open.spotify.com/oembed");
+
+                    QUrlQuery query;
+                    query.addQueryItem("url", album["uri"].toString());
+
+                    url.setQuery(query);
+
+                    QNetworkRequest request;
+                    request.setUrl(url);
+                    request.setAttribute(SPOTIFY_COMMAND, "album_art_status");
+
+                    m_manager->get(request);
+                }
             }
             else if (cmd == "album_art_status")
             {
+                QJsonObject dat = m_response["album_art_status"];
+
                 if (json["thumbnail_url"].isNull())
                 {
                     warn("Error processing album art");
                 }
                 else
                 {
-                    QJsonObject dat = m_response["album_art_status"];
+                    auto track = dat["track"].toObject();
+                    auto album = track["album_resource"].toObject();
 
-                    auto track             = dat["track"].toObject();
-                    auto album             = track["album_resource"].toObject();
-                    album["thumbnail_url"] = json["thumbnail_url"];
+                    // Cache the album cover
+                    QString* cacheentry = new QString(json["thumbnail_url"].toString());
+                    m_albumcovercache.insert(album["uri"].toString(), cacheentry);
+                    cacheentry = nullptr;
 
+                    // Populate thumbnail
+                    album["thumbnail_url"]  = json["thumbnail_url"];
                     track["album_resource"] = album;
                     dat["track"]            = track;
-                    m_response["status"]    = dat;
-
-                    m_response.remove("album_art_status");
                 }
+
+                m_response["status"] = dat;
+
+                m_response.remove("album_art_status");
 
                 quasar_signal_data_ready(m_handle, "status");
             }
@@ -194,7 +214,6 @@ bool SpotifyQuasar::getCSRF()
         QJsonObject   dat = jsondat.object();
 
         m_csrf = dat["token"].toString();
-        debug("csrf: %s", m_csrf.toStdString().c_str());
     }
     else
     {
@@ -226,7 +245,6 @@ bool SpotifyQuasar::getOAuth()
         QJsonObject   dat = jsondat.object();
 
         m_oauth = dat["t"].toString();
-        debug("oauth: %s", m_oauth.toStdString().c_str());
     }
     else
     {

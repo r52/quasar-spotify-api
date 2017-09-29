@@ -6,8 +6,7 @@
 
 #include "spotifyquasar.h"
 
-using GetDataFnType = std::function<bool(quasar_data_handle hData)>;
-using DataCallTable = std::map<size_t, GetDataFnType>;
+using DataCallTable = std::unordered_map<size_t, size_t>;
 
 static DataCallTable calltable;
 
@@ -23,29 +22,12 @@ quasar_data_source_t sources[1] =
         { "status", 0, 0 }
     };
 
-bool spotify_quasar_get_status(quasar_data_handle hData)
-{
-    if (!spotify || !spotify->isAvailable())
-    {
-        return false;
-    }
-
-    QString resp = spotify->getResponse("status");
-
-    if (!resp.isEmpty())
-    {
-        quasar_set_data_json(hData, resp.toStdString().c_str());
-    }
-
-    return true;
-}
-
 bool spotify_quasar_init(quasar_plugin_handle handle)
 {
     // Process uid entries.
     if (sources[SPOT_SRC_STATUS].uid != 0)
     {
-        calltable[sources[SPOT_SRC_STATUS].uid] = spotify_quasar_get_status;
+        calltable[sources[SPOT_SRC_STATUS].uid] = SPOT_SRC_STATUS;
     }
 
     spotify.reset(new SpotifyQuasar(handle));
@@ -65,13 +47,22 @@ bool spotify_quasar_get_data(size_t srcUid, quasar_data_handle hData)
     if (calltable.count(srcUid) == 0)
     {
         warn("Unknown source %Iu", srcUid);
-    }
-    else
-    {
-        return calltable[srcUid](hData);
+        return false;
     }
 
-    return false;
+    if (!spotify || !spotify->isAvailable())
+    {
+        return false;
+    }
+
+    QString resp = spotify->getResponse(sources[calltable[srcUid]].dataSrc);
+
+    if (!resp.isEmpty())
+    {
+        quasar_set_data_json(hData, resp.toStdString().c_str());
+    }
+
+    return true;
 }
 
 quasar_plugin_info_t info =

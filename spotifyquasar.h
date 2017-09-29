@@ -52,9 +52,9 @@ private:
     quint16 m_port      = 4381;
     bool    m_available = false;
 
-    QNetworkAccessManager*      m_manager = nullptr;
-    QNetworkRequest             m_defaultrequest;
-    QHash<QString, QJsonObject> m_response;
-    QCache<QString, QString>    m_albumcovercache;
-    quasar_plugin_handle        m_handle;
+    QNetworkAccessManager*     m_manager = nullptr;
+    QNetworkRequest            m_defaultrequest;
+    QMap<QString, QJsonObject> m_response;
+    QCache<QString, QString>   m_albumcovercache;
+    quasar_plugin_handle       m_handle;
 };

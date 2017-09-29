@@ -4,7 +4,7 @@ body {
     font-family: 'Roboto', sans-serif;
     user-select: none;
     user-drag: none;
-    font-size: 50px;
+    font-size: 45px;
     background-color: transparent;
     overflow: hidden;
     color: #fff;
@@ -27,10 +27,12 @@ body {
   text-transform: uppercase;
 }
 
-.artist {
-  padding-top: 20px;
+.track {
+  font-size: 25px;
 }
 
-.track {
-  font-size: 30px;
+.info_container {
+    display: flex;
+    align-items: center;
+    height: 150px;
 }

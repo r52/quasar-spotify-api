@@ -9,6 +9,10 @@
 
 #define SPOTIFY_COMMAND QNetworkRequest::User
 
+#define SPOTIFY_DEFAULT_PORT 4381
+#define SPOTIFY_MIN_PORT 4370
+#define SPOTIFY_MAX_PORT 4390
+
 SpotifyQuasar::SpotifyQuasar(quasar_plugin_handle handle)
     : m_handle(handle)
 {
@@ -16,7 +20,12 @@ SpotifyQuasar::SpotifyQuasar(quasar_plugin_handle handle)
 
     m_defaultrequest.setRawHeader("Origin", "https://embed.spotify.com");
 
-    if (tryConnect() &&
+    // handlers
+    using namespace std::placeholders;
+    m_respcallmap["status"]           = std::bind(&SpotifyQuasar::handleStatus, this, _1);
+    m_respcallmap["album_art_status"] = std::bind(&SpotifyQuasar::handleAlbumArt, this, _1);
+
+    if (connectSpotify() &&
         getCSRF() &&
         getOAuth())
     {
@@ -89,78 +98,17 @@ void SpotifyQuasar::handleResponse(QNetworkReply* reply)
         {
             QString cmd = reply->request().attribute(SPOTIFY_COMMAND).toString();
 
-            // TODO: refactor this ugly pos
             if (cmd.isEmpty())
             {
                 warn("Invalid command in response");
             }
-            else if (cmd == "status")
+            else if (!m_respcallmap.contains(cmd))
             {
-                auto track = json["track"].toObject();
-                auto album = track["album_resource"].toObject();
-
-                // Only make the album cover request if not cached
-                if (m_albumcovercache.contains(album["uri"].toString()))
-                {
-                    album["thumbnail_url"]  = *(m_albumcovercache.take(album["uri"].toString()));
-                    track["album_resource"] = album;
-                    json["track"]           = track;
-                    m_response["status"]    = json;
-
-                    quasar_signal_data_ready(m_handle, "status");
-                }
-                else
-                {
-                    m_response["album_art_status"] = json;
-
-                    // Get album art
-                    QUrl url("https://open.spotify.com/oembed");
-
-                    QUrlQuery query;
-                    query.addQueryItem("url", album["uri"].toString());
-
-                    url.setQuery(query);
-
-                    QNetworkRequest request;
-                    request.setUrl(url);
-                    request.setAttribute(SPOTIFY_COMMAND, "album_art_status");
-
-                    m_manager->get(request);
-                }
-            }
-            else if (cmd == "album_art_status")
-            {
-                QJsonObject dat = m_response["album_art_status"];
-
-                if (json["thumbnail_url"].isNull())
-                {
-                    warn("Error processing album art");
-                }
-                else
-                {
-                    auto track = dat["track"].toObject();
-                    auto album = track["album_resource"].toObject();
-
-                    // Cache the album cover
-                    QString* cacheentry = new QString(json["thumbnail_url"].toString());
-                    m_albumcovercache.insert(album["uri"].toString(), cacheentry);
-                    cacheentry = nullptr;
-
-                    // Populate thumbnail
-                    album["thumbnail_url"]  = json["thumbnail_url"];
-                    track["album_resource"] = album;
-                    dat["track"]            = track;
-                }
-
-                m_response["status"] = dat;
-
-                m_response.remove("album_art_status");
-
-                quasar_signal_data_ready(m_handle, "status");
+                warn("Unsupported command '%s' in response", cmd.toStdString().c_str());
             }
             else
             {
-                warn("Unsupported command '%s' in response", cmd.toStdString().c_str());
+                m_respcallmap[cmd](json);
             }
         }
     }
@@ -168,36 +116,38 @@ void SpotifyQuasar::handleResponse(QNetworkReply* reply)
     reply->deleteLater();
 }
 
-bool SpotifyQuasar::tryConnect()
+bool SpotifyQuasar::connectSpotify()
 {
-    QEventLoop eventLoop;
-    connect(m_manager, &QNetworkAccessManager::finished, &eventLoop, &QEventLoop::quit);
-
-    QNetworkRequest request = m_defaultrequest;
-    request.setUrl(QUrl(m_url + QString::number(m_port)));
-
-    QNetworkReply* reply = m_manager->get(request);
-    eventLoop.exec();
-
-    // Expect the reply to be 404
-    if (reply->error() == QNetworkReply::ContentNotFoundError)
+    // Try default port first
+    if (testSpotifyConnection(SPOTIFY_DEFAULT_PORT))
     {
-        m_available = true;
-        m_url       = m_url + QString::number(m_port);
-    }
-    else
-    {
-        warn("Failed to reach Spotify server: %d", reply->error());
-        m_available = false;
+        return true;
     }
 
-    reply->deleteLater();
+    // Otherwise try to find the port
+    quint16 port = SPOTIFY_MIN_PORT;
+
+    while (!testSpotifyConnection(port) && port < SPOTIFY_MAX_PORT)
+    {
+        port++;
+    }
+
+    if (!m_available)
+    {
+        warn("Failed to connect to Spotify app");
+    }
 
     return m_available;
 }
 
 bool SpotifyQuasar::getCSRF()
 {
+    if (!m_available)
+    {
+        warn("Spotify connection not available");
+        return false;
+    }
+
     QEventLoop eventLoop;
     connect(m_manager, &QNetworkAccessManager::finished, &eventLoop, &QEventLoop::quit);
 
@@ -229,6 +179,12 @@ bool SpotifyQuasar::getCSRF()
 
 bool SpotifyQuasar::getOAuth()
 {
+    if (!m_available)
+    {
+        warn("Spotify connection not available");
+        return false;
+    }
+
     QEventLoop eventLoop;
     connect(m_manager, &QNetworkAccessManager::finished, &eventLoop, &QEventLoop::quit);
 
@@ -256,4 +212,94 @@ bool SpotifyQuasar::getOAuth()
     reply->deleteLater();
 
     return m_available;
+}
+
+bool SpotifyQuasar::testSpotifyConnection(quint16 port)
+{
+    QEventLoop eventLoop;
+    connect(m_manager, &QNetworkAccessManager::finished, &eventLoop, &QEventLoop::quit);
+
+    QNetworkRequest request = m_defaultrequest;
+    QString         url     = "http://localhost:" + QString::number(port);
+    request.setUrl(QUrl(url));
+
+    QNetworkReply* reply = m_manager->get(request);
+    eventLoop.exec();
+
+    // Expect the reply to be 404
+    if (reply->error() == QNetworkReply::ContentNotFoundError)
+    {
+        m_available = true;
+        m_url       = url;
+    }
+
+    reply->deleteLater();
+
+    return m_available;
+}
+
+void SpotifyQuasar::handleStatus(QJsonObject& json)
+{
+    auto track = json["track"].toObject();
+    auto album = track["album_resource"].toObject();
+
+    // Only make the album cover request if not cached
+    if (m_albumcovercache.contains(album["uri"].toString()))
+    {
+        album["thumbnail_url"]  = *(m_albumcovercache.take(album["uri"].toString()));
+        track["album_resource"] = album;
+        json["track"]           = track;
+        m_response["status"]    = json;
+
+        quasar_signal_data_ready(m_handle, "status");
+    }
+    else
+    {
+        m_response["album_art_status"] = json;
+
+        // Get album art
+        QUrl url("https://open.spotify.com/oembed");
+
+        QUrlQuery query;
+        query.addQueryItem("url", album["uri"].toString());
+
+        url.setQuery(query);
+
+        QNetworkRequest request;
+        request.setUrl(url);
+        request.setAttribute(SPOTIFY_COMMAND, "album_art_status");
+
+        m_manager->get(request);
+    }
+}
+
+void SpotifyQuasar::handleAlbumArt(QJsonObject& json)
+{
+    QJsonObject dat = m_response["album_art_status"];
+
+    if (json["thumbnail_url"].isNull())
+    {
+        warn("Error processing album art");
+    }
+    else
+    {
+        auto track = dat["track"].toObject();
+        auto album = track["album_resource"].toObject();
+
+        // Cache the album cover
+        QString* cacheentry = new QString(json["thumbnail_url"].toString());
+        m_albumcovercache.insert(album["uri"].toString(), cacheentry);
+        cacheentry = nullptr;
+
+        // Populate thumbnail
+        album["thumbnail_url"]  = json["thumbnail_url"];
+        track["album_resource"] = album;
+        dat["track"]            = track;
+    }
+
+    m_response["status"] = dat;
+
+    m_response.remove("album_art_status");
+
+    quasar_signal_data_ready(m_handle, "status");
 }

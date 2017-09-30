@@ -1,5 +1,7 @@
 #pragma once
 
+#include <functional>
+
 #include <QCache>
 #include <QNetworkReply>
 #include <QNetworkRequest>
@@ -28,6 +30,9 @@ class SpotifyQuasar : public QObject
 {
     Q_OBJECT;
 
+    using RespHandlerType = std::function<void(QJsonObject&)>;
+    using RespCallMapType = QHash<QString, RespHandlerType>;
+
 public:
     SpotifyQuasar(quasar_plugin_handle handle);
 
@@ -41,15 +46,20 @@ private slots:
 private:
     bool call(QString loc, QList<QPair<QString, QString>> params = QList<QPair<QString, QString>>(), QString resource = "remote");
 
-    bool tryConnect();
+    bool connectSpotify();
     bool getCSRF();
     bool getOAuth();
 
+    bool testSpotifyConnection(quint16 port);
+
+    // handlers
+    void handleStatus(QJsonObject& json);
+    void handleAlbumArt(QJsonObject& json);
+
 private:
-    QString m_url = "http://localhost:";
+    QString m_url;
     QString m_csrf;
     QString m_oauth;
-    quint16 m_port      = 4381;
     bool    m_available = false;
 
     QNetworkAccessManager*     m_manager = nullptr;
@@ -57,4 +67,5 @@ private:
     QMap<QString, QJsonObject> m_response;
     QCache<QString, QString>   m_albumcovercache;
     quasar_plugin_handle       m_handle;
+    RespCallMapType            m_respcallmap;
 };

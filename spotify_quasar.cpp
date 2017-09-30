@@ -32,7 +32,7 @@ bool spotify_quasar_init(quasar_plugin_handle handle)
 
     spotify.reset(new SpotifyQuasar(handle));
 
-    return true;
+    return spotify->isAvailable();
 }
 
 bool spotify_quasar_shutdown(quasar_plugin_handle handle)

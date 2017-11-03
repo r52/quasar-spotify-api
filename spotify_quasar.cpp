@@ -1,5 +1,6 @@
 #include <functional>
 #include <map>
+#include <memory>
 
 #include <plugin_api.h>
 #include <plugin_support.h>
@@ -74,7 +75,7 @@ quasar_plugin_info_t info =
         "me",
         "Queries Spotify player for current status",
 
-        _countof(sources),
+        std::size(sources),
         sources,
 
         spotify_quasar_init,

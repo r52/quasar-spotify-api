@@ -3,6 +3,7 @@
 #include <functional>
 
 #include <QCache>
+#include <QJsonObject>
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QObject>

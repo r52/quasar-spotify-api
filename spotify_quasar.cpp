@@ -47,7 +47,7 @@ bool spotify_quasar_get_data(size_t srcUid, quasar_data_handle hData)
 {
     if (calltable.count(srcUid) == 0)
     {
-        warn("Unknown source %Iu", srcUid);
+        warn("Unknown source %zu", srcUid);
         return false;
     }
 

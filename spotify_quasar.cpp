@@ -71,7 +71,7 @@ quasar_plugin_info_t info =
         QUASAR_API_VERSION,
         PLUGIN_NAME,
         PLUGIN_CODE,
-        "v1",
+        "v1.0.2",
         "me",
         "Queries Spotify player for current status",
 

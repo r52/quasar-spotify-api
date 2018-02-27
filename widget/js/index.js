@@ -1,6 +1,14 @@
 $(document).ready(function() {
     var p = null;
     var websocket = null;
+    var reg = {
+        widget: qWidgetName,
+        type: "poll",
+        plugin: "spotify",
+        source: "status"
+    };
+
+    var poll_msg = JSON.stringify(reg);
 
     var current = {};
     current["album_cover"] = $(".album_cover").css('background-image');
@@ -8,14 +16,7 @@ $(document).ready(function() {
     current["track"] = $(".track").text();
 
     function poll() {
-        var reg = {};
-
-        reg["widget"] = qWidgetName;
-        reg["type"] = "poll";
-        reg["plugin"] = "spotify";
-        reg["source"] = "status";
-
-        websocket.send(JSON.stringify(reg));
+        websocket.send(poll_msg);
     }
 
     function parseMsg(msg) {
@@ -46,15 +47,11 @@ $(document).ready(function() {
     }
 
     try {
-        if (typeof MozWebSocket == 'function')
-            WebSocket = MozWebSocket;
         if (websocket && websocket.readyState == 1)
             websocket.close();
         websocket = new WebSocket(qWsServerUrl);
         websocket.onopen = function(evt) {
             p = setInterval(poll, 2000);
-        };
-        websocket.onclose = function(evt) {
         };
         websocket.onmessage = function(evt) {
             parseMsg(evt.data);

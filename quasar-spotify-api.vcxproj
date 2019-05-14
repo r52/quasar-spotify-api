@@ -76,7 +76,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <PreprocessorDefinitions>UNICODE;_UNICODE;WIN32;_ENABLE_EXTENDED_ALIGNED_STORAGE;WIN64;QT_NO_DEBUG;NDEBUG;QT_CORE_LIB;QT_NETWORK_LIB;QT_NETWORKAUTH_LIB;QUASARSPOTIFYAPI_LIB;QT_GUI_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>UNICODE;_UNICODE;WIN32;_ENABLE_EXTENDED_ALIGNED_STORAGE;WIN64;QT_NO_DEBUG;NDEBUG;QT_CORE_LIB;QT_NETWORK_LIB;QT_NETWORKAUTH_LIB;QUASARSPOTIFYAPI_LIB;QT_GUI_LIB;QT_MESSAGELOGCONTEXT;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>.\GeneratedFiles;.;$(QTDIR)\include;.\GeneratedFiles\$(ConfigurationName);$(QTDIR)\include\QtCore;$(QTDIR)\include\QtNetwork;$(QTDIR)\include\QtNetworkAuth;quasar\extension-api\;$(QTDIR)\include\QtGui;$(QTDIR)\include\QtANGLE;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DebugInformationFormat />
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
@@ -86,11 +86,11 @@
       <SubSystem>Windows</SubSystem>
       <OutputFile>$(OutDir)\$(ProjectName).dll</OutputFile>
       <AdditionalLibraryDirectories>$(QTDIR)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <GenerateDebugInformation>false</GenerateDebugInformation>
       <AdditionalDependencies>qtmain.lib;Qt5Core.lib;Qt5Network.lib;Qt5NetworkAuth.lib;Qt5Gui.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <GenerateDebugInformation>DebugFull</GenerateDebugInformation>
     </Link>
     <QtMoc>
-      <Define>UNICODE;_UNICODE;WIN32;_ENABLE_EXTENDED_ALIGNED_STORAGE;WIN64;QT_NO_DEBUG;NDEBUG;QT_CORE_LIB;QT_NETWORK_LIB;QT_NETWORKAUTH_LIB;QUASARSPOTIFYAPI_LIB;QT_GUI_LIB;%(PreprocessorDefinitions)</Define>
+      <Define>UNICODE;_UNICODE;WIN32;_ENABLE_EXTENDED_ALIGNED_STORAGE;WIN64;QT_NO_DEBUG;NDEBUG;QT_CORE_LIB;QT_NETWORK_LIB;QT_NETWORKAUTH_LIB;QUASARSPOTIFYAPI_LIB;QT_GUI_LIB;QT_MESSAGELOGCONTEXT;%(PreprocessorDefinitions)</Define>
       <IncludePath>.\GeneratedFiles;.;$(QTDIR)\include;.\GeneratedFiles\$(ConfigurationName);$(QTDIR)\include\QtCore;$(QTDIR)\include\QtNetwork;$(QTDIR)\include\QtNetworkAuth;quasar\extension-api\;$(QTDIR)\include\QtGui;$(QTDIR)\include\QtANGLE;%(AdditionalIncludeDirectories)</IncludePath>
       <OutputFile>.\GeneratedFiles\$(ConfigurationName)\moc_%(Filename).cpp</OutputFile>
       <ExecutionDescription>Moc'ing %(Identity)...</ExecutionDescription>

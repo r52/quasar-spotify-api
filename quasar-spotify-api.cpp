@@ -1,7 +1,5 @@
 #include <memory>
 
-#include <QString>
-
 #include <extension_api.h>
 #include <extension_support.h>
 
@@ -27,9 +25,9 @@
 quasar_data_source_t sources[] = {{"currently-playing", QUASAR_POLLING_CLIENT, 2000, 0}, // GET
                                   {"volume", QUASAR_POLLING_CLIENT, 0, 0},               // PUT
                                   {"player", QUASAR_POLLING_CLIENT, 2000, 0},            // GET
-                                  {"previous", QUASAR_POLLING_CLIENT, 0, 0},             // PUT
+                                  {"previous", QUASAR_POLLING_CLIENT, 0, 0},             // POST
                                   {"recently-played", QUASAR_POLLING_CLIENT, 2000, 0},   // GET
-                                  {"next", QUASAR_POLLING_CLIENT, 0, 0},                 // PUT
+                                  {"next", QUASAR_POLLING_CLIENT, 0, 0},                 // POST
                                   {"pause", QUASAR_POLLING_CLIENT, 0, 0},                // PUT
                                   {"repeat", QUASAR_POLLING_CLIENT, 0, 0},               // PUT
                                   {"play", QUASAR_POLLING_CLIENT, 0, 0},                 // PUT
@@ -123,6 +121,16 @@ void quasar_spotify_update_settings(quasar_settings_t* settings)
     {
         m_clientid     = clientid;
         m_clientsecret = clientsecret;
+
+        if (m_api)
+        {
+            m_api->setClientIds(m_clientid, m_clientsecret);
+
+            if (!m_api->authenticated())
+            {
+                m_api->grant();
+            }
+        }
     }
 }
 

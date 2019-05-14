@@ -1,5 +1,6 @@
 #pragma once
 
+#include <mutex>
 #include <unordered_map>
 
 #include <QOAuth2AuthorizationCodeFlow>
@@ -15,7 +16,8 @@ public:
     enum Protocol
     {
         GET,
-        PUT
+        PUT,
+        POST
     };
 
     enum Command
@@ -46,34 +48,51 @@ public slots:
     void grant();
 
 private:
+    bool        checkArgsForKey(const QUrlQuery& args, const QString& key, const QString& cmd, quasar_data_handle output);
+    void        convertArgToQuery(QUrlQuery& args, QUrlQuery& query, const QString& convert);
+    QVariantMap convertArgsToParameters(const QUrlQuery& args);
+
     struct cmd_info_t
     {
         Protocol ptcl;
+        QString  src;
         QString  api;
     };
 
-    std::unordered_map<Command, cmd_info_t> m_infomap = {{CURRENTLY_PLAYING, {GET, "/currently-playing"}},
-                                                         {VOLUME, {PUT, "/volume"}},
-                                                         {PLAYER, {GET, ""}},
-                                                         {PREVIOUS, {PUT, "/previous"}},
-                                                         {RECENTLY_PLAYED, {GET, "/recently-played"}},
-                                                         {NEXT, {PUT, "/next"}},
-                                                         {PAUSE, {PUT, "/pause"}},
-                                                         {REPEAT, {PUT, "/repeat"}},
-                                                         {PLAY, {PUT, "/play"}},
-                                                         {SEEK, {PUT, "/seek"}},
-                                                         {SHUFFLE, {PUT, "/shuffle"}},
-                                                         {DEVICES, {GET, "/devices"}}};
+    struct cmd_data_t
+    {
+        QByteArray  data;
+        QStringList errs;
+
+        bool               data_ready;
+        bool               processing;
+        mutable std::mutex mtx;
+    };
+
+    std::unordered_map<Command, cmd_info_t> m_infomap = {{CURRENTLY_PLAYING, {GET, "currently-playing", "/currently-playing"}},
+                                                         {VOLUME, {PUT, "volume", "/volume"}},
+                                                         {PLAYER, {GET, "player", ""}},
+                                                         {PREVIOUS, {POST, "previous", "/previous"}},
+                                                         {RECENTLY_PLAYED, {GET, "recently-played", "/recently-played"}},
+                                                         {NEXT, {POST, "next", "/next"}},
+                                                         {PAUSE, {PUT, "pause", "/pause"}},
+                                                         {REPEAT, {PUT, "repeat", "/repeat"}},
+                                                         {PLAY, {PUT, "play", "/play"}},
+                                                         {SEEK, {PUT, "seek", "/seek"}},
+                                                         {SHUFFLE, {PUT, "shuffle", "/shuffle"}},
+                                                         {DEVICES, {GET, "devices", "/devices"}}};
+
+    std::unordered_map<Command, cmd_data_t> m_queue;
 
     quasar_ext_handle m_handle;
     QString           m_clientid;
     QString           m_clientsecret;
     QString           m_refreshtoken;
-    QString           m_state;
 
     bool m_authenticated;
 
-    QOAuth2AuthorizationCodeFlow m_oauth2;
+    QNetworkAccessManager*        m_manager;
+    QOAuth2AuthorizationCodeFlow* m_oauth2;
 
     Q_DISABLE_COPY(SpotifyAPI)
 };

@@ -48,9 +48,8 @@ public slots:
     void grant();
 
 private:
-    bool        checkArgsForKey(const QUrlQuery& args, const QString& key, const QString& cmd, quasar_data_handle output);
-    void        convertArgToQuery(QUrlQuery& args, QUrlQuery& query, const QString& convert);
-    QVariantMap convertArgsToParameters(const QUrlQuery& args);
+    bool checkArgsForKey(const QJsonObject& args, const QString& key, const QString& cmd, quasar_data_handle output);
+    void convertArgToQuery(QJsonObject& args, QUrlQuery& query, const QString& convert);
 
     struct cmd_info_t
     {

@@ -157,47 +157,48 @@ bool SpotifyAPI::execute(SpotifyAPI::Command cmd, quasar_data_handle output, QSt
 
     const auto cmdinfo = m_infomap[cmd];
 
+    auto oargs = QJsonDocument::fromJson(args.toUtf8()).object();
+
     QUrlQuery query;
-    QUrlQuery argq(args);
 
     // Validate args
-    convertArgToQuery(argq, query, "device_id");
+    convertArgToQuery(oargs, query, "device_id");
 
     switch (cmd)
     {
         case VOLUME:
         {
-            if (!checkArgsForKey(argq, "volume_percent", cmdinfo.src, output))
+            if (!checkArgsForKey(oargs, "volume_percent", cmdinfo.src, output))
                 return false;
 
-            convertArgToQuery(argq, query, "volume_percent");
+            convertArgToQuery(oargs, query, "volume_percent");
             break;
         }
 
         case REPEAT:
         {
-            if (!checkArgsForKey(argq, "state", cmdinfo.src, output))
+            if (!checkArgsForKey(oargs, "state", cmdinfo.src, output))
                 return false;
 
-            convertArgToQuery(argq, query, "state");
+            convertArgToQuery(oargs, query, "state");
             break;
         }
 
         case SEEK:
         {
-            if (!checkArgsForKey(argq, "position_ms", cmdinfo.src, output))
+            if (!checkArgsForKey(oargs, "position_ms", cmdinfo.src, output))
                 return false;
 
-            convertArgToQuery(argq, query, "position_ms");
+            convertArgToQuery(oargs, query, "position_ms");
             break;
         }
 
         case SHUFFLE:
         {
-            if (!checkArgsForKey(argq, "state", cmdinfo.src, output))
+            if (!checkArgsForKey(oargs, "state", cmdinfo.src, output))
                 return false;
 
-            convertArgToQuery(argq, query, "state");
+            convertArgToQuery(oargs, query, "state");
             break;
         }
 
@@ -206,7 +207,7 @@ bool SpotifyAPI::execute(SpotifyAPI::Command cmd, quasar_data_handle output, QSt
     }
 
     // Process args into data if any
-    auto parameters = convertArgsToParameters(argq);
+    auto parameters = oargs.toVariantMap();
 
     // Create query url
     QUrl cmdurl = apiUrl.url() + cmdinfo.api + "?" + query.toString(QUrl::FullyEncoded);
@@ -291,9 +292,9 @@ bool SpotifyAPI::execute(SpotifyAPI::Command cmd, quasar_data_handle output, QSt
     return false;
 }
 
-bool SpotifyAPI::checkArgsForKey(const QUrlQuery& args, const QString& key, const QString& cmd, quasar_data_handle output)
+bool SpotifyAPI::checkArgsForKey(const QJsonObject& args, const QString& key, const QString& cmd, quasar_data_handle output)
 {
-    if (!args.hasQueryItem(key))
+    if (!args.contains(key))
     {
         qWarning() << "SpotifyAPI: Argument '" << key << "' required for the '" << cmd << "' endpoint.";
         QString m{"Argument '" + key + "' required."};
@@ -304,25 +305,11 @@ bool SpotifyAPI::checkArgsForKey(const QUrlQuery& args, const QString& key, cons
     return true;
 }
 
-void SpotifyAPI::convertArgToQuery(QUrlQuery& args, QUrlQuery& query, const QString& convert)
+void SpotifyAPI::convertArgToQuery(QJsonObject& args, QUrlQuery& query, const QString& convert)
 {
-    if (args.hasQueryItem(convert))
+    if (args.contains(convert))
     {
-        auto v = args.queryItemValue(convert);
-        query.addQueryItem(convert, v);
-        args.removeQueryItem(convert);
+        auto v = args.take(convert);
+        query.addQueryItem(convert, v.toString());
     }
-}
-
-QVariantMap SpotifyAPI::convertArgsToParameters(const QUrlQuery& args)
-{
-    QVariantMap parameters;
-
-    auto alist = args.queryItems();
-    for (auto e : alist)
-    {
-        parameters.insert(e.first, e.second);
-    }
-
-    return parameters;
 }

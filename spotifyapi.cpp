@@ -175,6 +175,14 @@ bool SpotifyAPI::execute(SpotifyAPI::Command cmd, quasar_data_handle output, QSt
             break;
         }
 
+        case RECENTLY_PLAYED:
+        {
+            convertArgToQuery(oargs, query, "limit");
+            convertArgToQuery(oargs, query, "after");
+            convertArgToQuery(oargs, query, "before");
+            break;
+        }
+
         case REPEAT:
         {
             if (!checkArgsForKey(oargs, "state", cmdinfo.src, output))

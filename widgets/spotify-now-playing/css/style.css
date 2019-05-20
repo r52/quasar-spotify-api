@@ -3,7 +3,6 @@
 body {
     font-family: 'Roboto', sans-serif;
     user-select: none;
-    user-drag: none;
     font-size: 45px;
     background-color: transparent;
     overflow: hidden;

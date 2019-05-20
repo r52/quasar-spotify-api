@@ -1,8 +1,9 @@
 {
-    "name": "spotify",
+    "name": "spotify-now-playing",
     "width": 800,
     "height": 180,
     "startFile": "index.html",
     "transparentBg": true,
-    "required": ["spotify"]
+    "required": ["spotify-api"],
+    "dataserver": true
 }

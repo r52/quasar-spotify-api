@@ -101,8 +101,8 @@ quasar_settings_t* quasar_spotify_create_settings()
 {
     auto settings = quasar_create_settings();
 
-    quasar_add_string(settings, "clientid", "Client ID", "");
-    quasar_add_string(settings, "clientsecret", "Client Secret", "");
+    quasar_add_string(settings, "clientid", "Client ID", "", true);
+    quasar_add_string(settings, "clientsecret", "Client Secret", "", true);
 
     return settings;
 }

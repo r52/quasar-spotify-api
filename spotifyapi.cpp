@@ -118,6 +118,14 @@ void SpotifyAPI::setClientIds(QString clientid, QString clientsecret)
 
 bool SpotifyAPI::execute(SpotifyAPI::Command cmd, quasar_data_handle output, QString args)
 {
+    // check expiry
+    auto curr = QDateTime::currentDateTime();
+    if (curr > m_oauth2->expirationAt())
+    {
+        // renew if token expired
+        grant();
+    }
+
     auto& dt = m_queue[cmd];
 
     {
@@ -238,7 +246,7 @@ bool SpotifyAPI::execute(SpotifyAPI::Command cmd, quasar_data_handle output, QSt
 
                     if (reply->error() != QNetworkReply::NoError)
                     {
-                        qWarning() << "SpotifyAPI:" << reply->errorString();
+                        qWarning() << "SpotifyAPI:" << reply->error() << reply->errorString();
                         dt.errs.append(reply->errorString());
                         quasar_signal_data_ready(m_handle, cmdinfo.src.toUtf8().data());
                         return;
@@ -276,7 +284,7 @@ bool SpotifyAPI::execute(SpotifyAPI::Command cmd, quasar_data_handle output, QSt
 
                     if (reply->error() != QNetworkReply::NoError)
                     {
-                        qWarning() << "SpotifyAPI:" << reply->errorString();
+                        qWarning() << "SpotifyAPI:" << reply->error() << reply->errorString();
                         dt.errs.append(reply->errorString());
                         quasar_signal_data_ready(m_handle, cmdinfo.src.toUtf8().data());
                         return;

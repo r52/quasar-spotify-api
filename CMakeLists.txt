@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.9)
 
-project(quasar-spotify)
+project(quasar-spotify-api)
 
 set(default_build_type "Release")
 
@@ -15,6 +15,9 @@ endif()
 
 if(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
     message("DEBUG BUILD")
+else()
+    add_definitions(-DQT_MESSAGELOGCONTEXT)
+    add_definitions(-DNDEBUG)
 endif()
 
 set(CMAKE_SKIP_BUILD_RPATH FALSE)
@@ -24,15 +27,15 @@ set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 set(CMAKE_AUTOMOC ON)
 
-find_package(Qt5 COMPONENTS Core Network REQUIRED)
+find_package(Qt5 COMPONENTS Core Gui Network NetworkAuth REQUIRED)
 
 set(SOURCES
-    spotifyquasar.cpp
-    spotify_quasar.cpp)
+    quasar-spotify-api.cpp
+    spotifyapi.cpp)
 
-add_library(quasar-spotify SHARED ${SOURCES})
-target_compile_features(quasar-spotify PUBLIC cxx_std_17)
-target_link_libraries(quasar-spotify Qt5::Core Qt5::Network)
-target_include_directories(quasar-spotify PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} api/)
+add_library(quasar-spotify-api SHARED ${SOURCES})
+target_compile_features(quasar-spotify-api PUBLIC cxx_std_17)
+target_link_libraries(quasar-spotify-api Qt5::Core Qt5::Gui Qt5::Network Qt5::NetworkAuth)
+target_include_directories(quasar-spotify-api PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} quasar/extension-api/)
 
-install(TARGETS quasar-spotify DESTINATION quasar/plugins)
+install(TARGETS quasar-spotify-api DESTINATION quasar/extensions)

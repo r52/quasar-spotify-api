@@ -92,6 +92,7 @@ private:
 
     QNetworkAccessManager*        m_manager;
     QOAuth2AuthorizationCodeFlow* m_oauth2;
+    mutable std::mutex            m_authmtx;
 
     Q_DISABLE_COPY(SpotifyAPI)
 };

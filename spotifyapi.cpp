@@ -72,6 +72,8 @@ SpotifyAPI::SpotifyAPI(quasar_ext_handle handle, QString clientid, QString clien
 
 void SpotifyAPI::grant()
 {
+    std::unique_lock<std::mutex> lk(m_authmtx);
+
     if (m_clientid.isEmpty())
     {
         qWarning() << "SpotifyAPI: Client ID not set for authentication.";

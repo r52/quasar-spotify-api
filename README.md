@@ -3,11 +3,11 @@
 
 Spotify API extension and sample widget for Quasar.
 
-# Setup
+## Setup
 
 Since the Spotify API is rate limited for each App, this extension does not provide its own Client ID/Secret. [Register your own App](https://developer.spotify.com/documentation/general/guides/app-settings/#register-your-app) on the Spotify site and set up your Client ID and Secret in Quasar settings. Make sure whitelisted Redirect URIs is set to `http://127.0.0.1:1337/callback`
 
-# Usage
+## Usage
 
 quasar-spotify-api implements most of Spotify's [Player API](https://developer.spotify.com/documentation/web-api/reference-beta/#category-player) as Quasar Data Sources. See the [Spotify API Reference](https://developer.spotify.com/documentation/web-api/reference-beta/) for more details.
 
@@ -26,7 +26,7 @@ These include:
 - `shuffle`
 - `devices`
 
-## Sample Queries/Outputs
+### Sample Queries/Outputs
 
 Query:
 ```json

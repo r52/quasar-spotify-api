@@ -72,8 +72,6 @@ SpotifyAPI::SpotifyAPI(quasar_ext_handle handle, QString clientid, QString clien
 
 void SpotifyAPI::grant()
 {
-    std::unique_lock<std::mutex> lk(m_authmtx);
-
     if (m_clientid.isEmpty())
     {
         qWarning() << "SpotifyAPI: Client ID not set for authentication.";
@@ -120,12 +118,16 @@ void SpotifyAPI::setClientIds(QString clientid, QString clientsecret)
 
 bool SpotifyAPI::execute(SpotifyAPI::Command cmd, quasar_data_handle output, QString args)
 {
-    // check expiry
-    auto curr = QDateTime::currentDateTime();
-    if (curr > m_oauth2->expirationAt())
     {
-        // renew if token expired
-        grant();
+        std::unique_lock<std::mutex> lk(m_authmtx);
+
+        // check expiry
+        auto curr = QDateTime::currentDateTime();
+        if (curr > m_oauth2->expirationAt())
+        {
+            // renew if token expired
+            grant();
+        }
     }
 
     auto& dt = m_queue[cmd];

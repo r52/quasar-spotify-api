@@ -63,9 +63,8 @@ private:
         QByteArray  data;
         QStringList errs;
 
-        bool               data_ready;
-        bool               processing;
-        mutable std::mutex mtx;
+        bool data_ready;
+        bool processing;
     };
 
     std::unordered_map<Command, cmd_info_t> m_infomap = {{CURRENTLY_PLAYING, {GET, "currently-playing", "/currently-playing"}},
@@ -89,10 +88,11 @@ private:
     QString           m_refreshtoken;
 
     bool m_authenticated;
+    bool m_granting;
+    bool m_expired;
 
     QNetworkAccessManager*        m_manager;
     QOAuth2AuthorizationCodeFlow* m_oauth2;
-    mutable std::mutex            m_authmtx;
 
     Q_DISABLE_COPY(SpotifyAPI)
 };

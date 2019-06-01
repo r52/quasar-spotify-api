@@ -8,7 +8,7 @@
 const QUrl apiUrl("https://api.spotify.com/v1/me/player");
 
 SpotifyAPI::SpotifyAPI(quasar_ext_handle handle, QString clientid, QString clientsecret) :
-    m_handle(handle), m_clientid(clientid), m_clientsecret(clientsecret), m_authenticated(false)
+    m_handle(handle), m_clientid(clientid), m_clientsecret(clientsecret), m_authenticated(false), m_granting(false), m_expired(false)
 {
     if (nullptr == m_handle)
     {
@@ -45,11 +45,12 @@ SpotifyAPI::SpotifyAPI(quasar_ext_handle handle, QString clientid, QString clien
         {
             qInfo() << "SpotifyAPI: Authenticated.";
             m_authenticated = true;
+            m_granting      = false;
         }
-        else
-        {
-            m_authenticated = false;
-        }
+    });
+
+    connect(m_oauth2, &QOAuth2AuthorizationCodeFlow::expirationAtChanged, [=](const QDateTime& expiration) {
+        m_expired = (QDateTime::currentDateTime() > expiration);
     });
 
     connect(m_oauth2, &QOAuth2AuthorizationCodeFlow::authorizeWithBrowser, &QDesktopServices::openUrl);
@@ -93,9 +94,17 @@ void SpotifyAPI::grant()
         loop.exec();
 
         // If authenticated by refreshtoken
-        if (timer.isActive() && m_authenticated)
+        if (timer.isActive() && m_authenticated && !m_expired)
             return;
     }
+
+    // If a grant already initiated, don't perform another one for a while
+    if (m_granting)
+        return;
+
+    m_granting = true;
+    // 1 minute grant timeout
+    QTimer::singleShot(60000, [=]() { m_granting = false; });
 
     qInfo() << "SpotifyAPI: Obtaining Authorization grant.";
     m_oauth2->grant();
@@ -118,55 +127,59 @@ void SpotifyAPI::setClientIds(QString clientid, QString clientsecret)
 
 bool SpotifyAPI::execute(SpotifyAPI::Command cmd, quasar_data_handle output, QString args)
 {
+    // check expiry
+    auto curr = QDateTime::currentDateTime();
+    if (curr > m_oauth2->expirationAt())
     {
-        std::unique_lock<std::mutex> lk(m_authmtx);
+        // renew if token expired
+        m_expired = true;
+        grant();
+    }
 
-        // check expiry
-        auto curr = QDateTime::currentDateTime();
-        if (curr > m_oauth2->expirationAt())
-        {
-            // renew if token expired
-            grant();
-        }
+    if (!m_authenticated || m_expired)
+    {
+        qWarning() << "SpotifyAPI: Unauthenticated or expired access token";
+        return false;
     }
 
     auto& dt = m_queue[cmd];
 
+    if (dt.data_ready)
     {
-        std::unique_lock<std::mutex> lk(dt.mtx);
-        if (dt.data_ready)
+        // set data
+        if (dt.data.isEmpty())
         {
-            if (dt.data.isEmpty())
-            {
-                quasar_set_data_null(output);
-            }
-            else
-            {
-                quasar_set_data_json(output, dt.data.data());
-            }
-
-            for (auto i : dt.errs)
-            {
-                quasar_append_error(output, i.toUtf8().data());
-            }
-
-            dt.data.clear();
-            dt.errs.clear();
-
-            dt.data_ready = false;
-            return true;
+            quasar_set_data_null(output);
+        }
+        else
+        {
+            quasar_set_data_json(output, dt.data.data());
         }
 
-        if (dt.processing)
+        for (auto i : dt.errs)
         {
-            // still processing
-            return true;
+            quasar_append_error(output, i.toUtf8().data());
         }
 
-        // set processiing
-        dt.processing = true;
+        // clear queue and flags
+        dt.data.clear();
+        dt.errs.clear();
+
+        dt.data_ready = false;
+        dt.processing = false;
+        return true;
     }
 
+    if (dt.processing)
+    {
+        // still processing
+        return true;
+    }
+
+    // otherwise, set processing
+    dt.processing = true;
+
+    // Process command
     const auto cmdinfo = m_infomap[cmd];
 
     auto oargs = QJsonDocument::fromJson(args.toUtf8()).object();
@@ -242,30 +255,26 @@ bool SpotifyAPI::execute(SpotifyAPI::Command cmd, quasar_data_handle output, QSt
 
                 auto& dt = m_queue[cmd];
 
+                dt.data_ready = true;
+                dt.processing = false;
+
+                if (reply->error() != QNetworkReply::NoError)
                 {
-                    std::unique_lock<std::mutex> lk(dt.mtx);
-
-                    dt.data_ready = true;
-                    dt.processing = false;
-
-                    if (reply->error() != QNetworkReply::NoError)
-                    {
-                        qWarning() << "SpotifyAPI:" << reply->error() << reply->errorString();
-                        dt.errs.append(reply->errorString());
-                        quasar_signal_data_ready(m_handle, cmdinfo.src.toUtf8().data());
-                        return;
-                    }
-
-                    auto code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-
-                    if (code != 204)
-                    {
-                        const auto json = reply->readAll();
-                        dt.data         = json;
-                    }
-
+                    qWarning() << "SpotifyAPI:" << reply->error() << reply->errorString();
+                    dt.errs.append(reply->errorString());
                     quasar_signal_data_ready(m_handle, cmdinfo.src.toUtf8().data());
+                    return;
                 }
+
+                auto code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+
+                if (code != 204)
+                {
+                    const auto json = reply->readAll();
+                    dt.data         = json;
+                }
+
+                quasar_signal_data_ready(m_handle, cmdinfo.src.toUtf8().data());
             });
 
             return true;
@@ -280,29 +289,25 @@ bool SpotifyAPI::execute(SpotifyAPI::Command cmd, quasar_data_handle output, QSt
 
                 auto& dt = m_queue[cmd];
 
+                dt.data_ready = true;
+                dt.processing = false;
+
+                if (reply->error() != QNetworkReply::NoError)
                 {
-                    std::unique_lock<std::mutex> lk(dt.mtx);
-
-                    dt.data_ready = true;
-                    dt.processing = false;
-
-                    if (reply->error() != QNetworkReply::NoError)
-                    {
-                        qWarning() << "SpotifyAPI:" << reply->error() << reply->errorString();
-                        dt.errs.append(reply->errorString());
-                        quasar_signal_data_ready(m_handle, cmdinfo.src.toUtf8().data());
-                        return;
-                    }
-
-                    auto code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-
-                    if (code != 204)
-                    {
-                        dt.errs.append(QString::number(code));
-                    }
-
+                    qWarning() << "SpotifyAPI:" << reply->error() << reply->errorString();
+                    dt.errs.append(reply->errorString());
                     quasar_signal_data_ready(m_handle, cmdinfo.src.toUtf8().data());
+                    return;
                 }
+
+                auto code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+
+                if (code != 204)
+                {
+                    dt.errs.append(QString::number(code));
+                }
+
+                quasar_signal_data_ready(m_handle, cmdinfo.src.toUtf8().data());
             });
 
             return true;

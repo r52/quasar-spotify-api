@@ -27,7 +27,7 @@ set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 set(CMAKE_AUTOMOC ON)
 
-find_package(Qt5 COMPONENTS Core Gui Network NetworkAuth REQUIRED)
+find_package(Qt5 5.12 COMPONENTS Core Gui Network NetworkAuth REQUIRED)
 
 set(SOURCES
     quasar-spotify-api.cpp

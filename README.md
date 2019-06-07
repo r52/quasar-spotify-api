@@ -1,11 +1,42 @@
 # quasar-spotify-api
 [![Build status](https://ci.appveyor.com/api/projects/status/ms3bgy8srhw3mxm0?svg=true)](https://ci.appveyor.com/project/r52/spotify-quasar)
 
-Spotify API extension and sample widget for Quasar.
+Spotify API extension and sample widget for [Quasar](https://github.com/r52/quasar).
+
+**quasar-spotify-api** is licensed under GPL-3.0. Sample widget `spotify-now-playing` is licensed under the MIT license.
+
+## Installation
+
+1. Extract the extension archive to `My Documents\Quasar\`
+2. Goto the [**Spotify Developer Dashboard**](https://developer.spotify.com/dashboard/) and log into your Spotify account.
+3. Click **CREATE A CLIENT ID**, and enter the Application Name and Description of your desire for the extension.
+4. Once the app is registered, click **Edit Settings**, and add `http://127.0.0.1:1337/callback` under **Redirect URIs**.
+5. (Re)start Quasar, then right click the Quasar tray icon, select **Settings -> Extensions -> Quasar Spotify API**.
+6. Under **Extension Settings**, copy your **Client ID** and **Client Secret** from the Dashboard to the fields, and click **Save**.
+7. You will be sent to the app authorization page on your browser. Authorize the app.
+8. Load your widgets that uses quasar-spotify-api.
 
 ## Setup
 
-Since the Spotify API is rate limited for each App, this extension does not provide its own Client ID/Secret. [Register your own App](https://developer.spotify.com/documentation/general/guides/app-settings/#register-your-app) on the Spotify site and set up your Client ID and Secret in Quasar settings. Make sure whitelisted Redirect URIs is set to `http://127.0.0.1:1337/callback`
+Since the Spotify API is rate limited for each App, this extension does not provide its own Client ID/Secret. [Register your own App](https://developer.spotify.com/dashboard/) on the Spotify Developer Dashboard and set up your Client ID and Secret in Quasar settings. Make sure whitelisted Redirect URIs is set to `http://127.0.0.1:1337/callback`
+
+## Building
+
+Source code is [available on GitHub](https://github.com/r52/quasar-spotify-api).
+
+### Building on Windows
+
+[Visual Studio 2017 or later](https://www.visualstudio.com/) is required.
+
+[Qt 5.12 or later, along with the optional QtNetworkAuth module](http://www.qt.io/) is required.
+
+Build using the Visual Studio Solution file.
+
+### Building on Linux
+
+Qt 5.12 or later along with the optional QtNetworkAuth module, GCC 7+ or Clang 4+, and CMake 3.9+ is required.
+
+Build using the supplied CMake project file.
 
 ## Usage
 

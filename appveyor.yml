@@ -1,0 +1,45 @@
+version: '{branch}-{build}'
+skip_non_tags: true
+image: Visual Studio 2019
+configuration: Release
+platform: x64
+clone_folder: C:\projects\quasar-spotify-api
+init:
+- ps: >-
+    if ($env:APPVEYOR_REPO_TAG -eq "true")
+
+    {
+        Update-AppveyorBuild -Version "$env:APPVEYOR_REPO_TAG_NAME-$env:APPVEYOR_BUILD_NUMBER"
+    }
+
+    else
+
+    {
+        Update-AppveyorBuild -Version "$($env:APPVEYOR_REPO_COMMIT.Substring(0, 7))-$env:APPVEYOR_BUILD_NUMBER"
+    }
+environment:
+  QTDIR: C:\Qt\5.12.5\msvc2017_64
+install:
+- cmd: git submodule update --init --recursive
+# Gotta run this twice because a fresh qtvars build in projects with references results in unresolved entry points for some stupid reason
+build_script:
+  - cmd: msbuild "C:\projects\quasar-spotify-api\quasar-spotify-api.sln" /m /verbosity:normal /logger:"C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll" & exit 0
+  - cmd: msbuild "C:\projects\quasar-spotify-api\quasar-spotify-api.sln" /m /verbosity:normal /logger:"C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll"
+after_build:
+- ps: >-
+    $name = "$($env:APPVEYOR_PROJECT_NAME)_$($env:APPVEYOR_BUILD_VERSION)"
+
+    $pkgname = "$($name)_win_x64.7z"
+
+
+    Copy-Item .\build\x64\Release\quasar-spotify-api.dll -Destination (New-Item .\extensions\ -Type Directory -Force) -Force
+
+
+    & 7z a -t7z $pkgname .\widgets\ .\extensions\
+
+
+    if ($env:APPVEYOR -eq $true)
+
+    {
+        Get-ChildItem $pkgname | % { Push-AppveyorArtifact $_.FullName -FileName $_.Name }
+    }

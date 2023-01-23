@@ -37,7 +37,7 @@ async function initialize(socket) {
   sleep(10);
   query("devices");
 
-  setInterval(poll_current, 2000);
+  setInterval(poll_current, 2500);
 }
 
 function parseMsg(msg) {

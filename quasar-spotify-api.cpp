@@ -54,7 +54,7 @@ bool quasar_spotify_init(quasar_ext_handle handle)
 
     api                         = new SpotifyAPI(handle, m_clientid, m_clientsecret);
 
-    QMetaObject::invokeMethod(api, [&] {
+    QMetaObject::invokeMethod(api, [] {
         api->grant();
     });
 
@@ -88,8 +88,8 @@ bool quasar_spotify_get_data(size_t srcUid, quasar_data_handle hData, char* args
     // Run this stuff on the main thread
     QMetaObject::invokeMethod(
         api,
-        [&] {
-            return api->Execute(commandMap[srcUid], hData, args);
+        [=, cmd = commandMap[srcUid]] {
+            return api->Execute(cmd, hData, args);
         },
         Qt::BlockingQueuedConnection,
         &ret);
@@ -128,7 +128,7 @@ void quasar_spotify_update_settings(quasar_settings_t* settings)
 
             if (!api->IsAuthenticated())
             {
-                QMetaObject::invokeMethod(api, [&] {
+                QMetaObject::invokeMethod(api, [] {
                     api->grant();
                 });
             }

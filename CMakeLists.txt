@@ -21,8 +21,10 @@ target_link_libraries(quasar-spotify-api PRIVATE fmt::fmt)
 target_link_libraries(quasar-spotify-api PRIVATE jsoncons)
 target_link_libraries(quasar-spotify-api PRIVATE quasar extension-api)
 
-add_custom_command(TARGET quasar-spotify-api POST_BUILD
-  COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:quasar-spotify-api> $<TARGET_FILE_DIR:quasar>/extensions/quasar-spotify-api.dll
-)
+if(WIN32)
+  add_custom_command(TARGET quasar-spotify-api POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:quasar-spotify-api> $<TARGET_FILE_DIR:quasar>/extensions/quasar-spotify-api.dll
+  )
+endif()
 
 install(TARGETS quasar-spotify-api DESTINATION quasar/extensions)

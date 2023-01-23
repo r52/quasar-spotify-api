@@ -78,7 +78,7 @@ SpotifyAPI::SpotifyAPI(quasar_ext_handle exthandle, QString cid, QString csc) :
 
     info("Callback url is {}", replyHandler->callback().toStdString());
 
-    connect(oauth2, &QOAuth2AuthorizationCodeFlow::statusChanged, [=](QAbstractOAuth::Status status) {
+    connect(oauth2, &QOAuth2AuthorizationCodeFlow::statusChanged, [this](QAbstractOAuth::Status status) {
         if (status == QAbstractOAuth::Status::Granted)
         {
             info("Authenticated.");
@@ -87,20 +87,20 @@ SpotifyAPI::SpotifyAPI(quasar_ext_handle exthandle, QString cid, QString csc) :
         }
     });
 
-    connect(oauth2, &QOAuth2AuthorizationCodeFlow::expirationAtChanged, [=](const QDateTime& expiration) {
+    connect(oauth2, &QOAuth2AuthorizationCodeFlow::expirationAtChanged, [this](const QDateTime& expiration) {
         expired = (QDateTime::currentDateTime() > expiration);
     });
 
     connect(oauth2, &QOAuth2AuthorizationCodeFlow::authorizeWithBrowser, &QDesktopServices::openUrl);
 
-    connect(oauth2, &QOAuth2AuthorizationCodeFlow::refreshTokenChanged, [=](const QString& refreshToken) {
+    connect(oauth2, &QOAuth2AuthorizationCodeFlow::refreshTokenChanged, [this](const QString& refreshToken) {
         refreshtoken = refreshToken;
 
         auto ba      = refreshtoken.toUtf8();
         quasar_set_storage_string(handle, "refreshtoken", ba.data());
     });
 
-    oauth2->setModifyParametersFunction([&](QAbstractOAuth::Stage stage, QMultiMap<QString, QVariant>* parameters) {
+    oauth2->setModifyParametersFunction([this](QAbstractOAuth::Stage stage, QMultiMap<QString, QVariant>* parameters) {
         if (stage == QAbstractOAuth::Stage::RefreshingAccessToken)
         {
             parameters->insert("client_id", clientid);
@@ -142,7 +142,7 @@ void SpotifyAPI::grant()
 
     granting = true;
     // 1 minute grant timeout
-    QTimer::singleShot(60000, [=]() {
+    QTimer::singleShot(60000, [this]() {
         granting = false;
     });
 
@@ -295,7 +295,7 @@ bool SpotifyAPI::Execute(SpotifyAPI::Command cmd, quasar_data_handle output, cha
         case GET:
             {
                 QNetworkReply* reply = oauth2->get(cmdurl, parameters);
-                connect(reply, &QNetworkReply::finished, [=]() {
+                connect(reply, &QNetworkReply::finished, [=, &cmdinfo, this]() {
                     reply->deleteLater();
 
                     auto& dt      = m_queue[cmd];
@@ -329,7 +329,7 @@ bool SpotifyAPI::Execute(SpotifyAPI::Command cmd, quasar_data_handle output, cha
         case POST:
             {
                 QNetworkReply* reply = (cmdinfo.ptcl == PUT ? oauth2->put(cmdurl, parameters) : oauth2->post(cmdurl, parameters));
-                connect(reply, &QNetworkReply::finished, [=]() {
+                connect(reply, &QNetworkReply::finished, [=, &cmdinfo, this]() {
                     reply->deleteLater();
 
                     auto& dt      = m_queue[cmd];

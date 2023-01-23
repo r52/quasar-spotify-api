@@ -1,16 +1,53 @@
 #include "spotifyapi.h"
 
-#include <extension_support.h>
+#include <extension_support.hpp>
 
 #include <QDesktopServices>
 #include <QtNetworkAuth>
 
+#include <fmt/core.h>
+
+#include <jsoncons/json.hpp>
+
 const QUrl apiUrl("https://api.spotify.com/v1/me/player");
 
-SpotifyAPI::SpotifyAPI(quasar_ext_handle handle, QString clientid, QString clientsecret) :
-    m_handle(handle), m_clientid(clientid), m_clientsecret(clientsecret), m_authenticated(false), m_granting(false), m_expired(false)
+namespace
 {
-    if (nullptr == m_handle)
+    void convertArgToQuery(jsoncons::json& args, QUrlQuery& query, std::string_view convert)
+    {
+        if (args.contains(convert))
+        {
+            auto strval = args.at(convert).as_string();
+            auto key    = QString::fromStdString(std::string{convert});
+            query.addQueryItem(key, QString::fromStdString(strval));
+
+            args.erase(convert);
+        }
+    }
+
+    bool checkArgsForKey(const jsoncons::json& args, std::string_view key, std::string_view cmd, quasar_data_handle output)
+    {
+        if (!args.contains(key))
+        {
+            warn("Argument '{}' required for the '{}' endpoint.", key, cmd);
+            auto err = fmt::format("Argument '{}' required.", key);
+            quasar_append_error(output, err.c_str());
+            return false;
+        }
+
+        return true;
+    }
+}  // namespace
+
+SpotifyAPI::SpotifyAPI(quasar_ext_handle exthandle, QString cid, QString csc) :
+    handle(exthandle),
+    clientid(cid),
+    clientsecret(csc),
+    authenticated(false),
+    granting(false),
+    expired(false)
+{
+    if (nullptr == handle)
     {
         throw std::invalid_argument("null extension handle");
     }
@@ -19,126 +56,129 @@ SpotifyAPI::SpotifyAPI(quasar_ext_handle handle, QString clientid, QString clien
 
     if (quasar_get_storage_string(handle, "refreshtoken", buf, sizeof(buf)))
     {
-        m_refreshtoken = buf;
+        refreshtoken = QString::fromLocal8Bit(buf);
     }
 
-    m_manager = new QNetworkAccessManager(this);
-    m_oauth2  = new QOAuth2AuthorizationCodeFlow(m_manager, this);
+    oauth2            = new QOAuth2AuthorizationCodeFlow(this);
 
-    auto replyHandler = new QOAuthHttpServerReplyHandler(1337, this);
+    auto replyHandler = new QOAuthHttpServerReplyHandler(QHostAddress::LocalHost, 1337, this);
     replyHandler->setCallbackPath("callback");
-    m_oauth2->setReplyHandler(replyHandler);
-    m_oauth2->setClientIdentifier(m_clientid);
-    m_oauth2->setClientIdentifierSharedKey(m_clientsecret);
-    m_oauth2->setAuthorizationUrl(QUrl("https://accounts.spotify.com/authorize"));
-    m_oauth2->setAccessTokenUrl(QUrl("https://accounts.spotify.com/api/token"));
-    m_oauth2->setScope("user-read-currently-playing user-read-playback-state user-modify-playback-state user-read-recently-played");
-    m_oauth2->setContentType(QAbstractOAuth::ContentType::Json);
+    oauth2->setReplyHandler(replyHandler);
+    oauth2->setClientIdentifier(clientid);
+    oauth2->setClientIdentifierSharedKey(clientsecret);
+    oauth2->setAuthorizationUrl(QUrl("https://accounts.spotify.com/authorize"));
+    oauth2->setAccessTokenUrl(QUrl("https://accounts.spotify.com/api/token"));
+    oauth2->setScope("user-read-currently-playing user-read-playback-state user-modify-playback-state user-read-recently-played");
+    oauth2->setContentType(QAbstractOAuth::ContentType::Json);
 
-    if (!m_refreshtoken.isEmpty())
+    if (!refreshtoken.isEmpty())
     {
-        m_oauth2->setRefreshToken(m_refreshtoken);
+        oauth2->setRefreshToken(refreshtoken);
     }
 
-    connect(m_oauth2, &QOAuth2AuthorizationCodeFlow::statusChanged, [=](QAbstractOAuth::Status status) {
+    info("Callback url is {}", replyHandler->callback().toStdString());
+
+    connect(oauth2, &QOAuth2AuthorizationCodeFlow::statusChanged, [=](QAbstractOAuth::Status status) {
         if (status == QAbstractOAuth::Status::Granted)
         {
-            qInfo() << "SpotifyAPI: Authenticated.";
-            m_authenticated = true;
-            m_granting      = false;
+            info("Authenticated.");
+            authenticated = true;
+            granting      = false;
         }
     });
 
-    connect(m_oauth2, &QOAuth2AuthorizationCodeFlow::expirationAtChanged, [=](const QDateTime& expiration) {
-        m_expired = (QDateTime::currentDateTime() > expiration);
+    connect(oauth2, &QOAuth2AuthorizationCodeFlow::expirationAtChanged, [=](const QDateTime& expiration) {
+        expired = (QDateTime::currentDateTime() > expiration);
     });
 
-    connect(m_oauth2, &QOAuth2AuthorizationCodeFlow::authorizeWithBrowser, &QDesktopServices::openUrl);
+    connect(oauth2, &QOAuth2AuthorizationCodeFlow::authorizeWithBrowser, &QDesktopServices::openUrl);
 
-    connect(m_oauth2, &QOAuth2AuthorizationCodeFlow::refreshTokenChanged, [=](const QString& refreshToken) {
-        m_refreshtoken = refreshToken;
+    connect(oauth2, &QOAuth2AuthorizationCodeFlow::refreshTokenChanged, [=](const QString& refreshToken) {
+        refreshtoken = refreshToken;
 
-        auto ba = m_refreshtoken.toUtf8();
-        quasar_set_storage_string(m_handle, "refreshtoken", ba.data());
+        auto ba      = refreshtoken.toUtf8();
+        quasar_set_storage_string(handle, "refreshtoken", ba.data());
     });
 
-    m_oauth2->setModifyParametersFunction([&](QAbstractOAuth::Stage stage, QVariantMap* parameters) {
+    oauth2->setModifyParametersFunction([&](QAbstractOAuth::Stage stage, QMultiMap<QString, QVariant>* parameters) {
         if (stage == QAbstractOAuth::Stage::RefreshingAccessToken)
         {
-            parameters->insert("client_id", m_clientid);
-            parameters->insert("client_secret", m_clientsecret);
+            parameters->insert("client_id", clientid);
+            parameters->insert("client_secret", clientsecret);
         }
     });
 }
 
 void SpotifyAPI::grant()
 {
-    if (m_clientid.isEmpty())
+    if (clientid.isEmpty())
     {
-        qWarning() << "SpotifyAPI: Client ID not set for authentication.";
+        warn("Client ID not set for authentication.");
         return;
     }
 
-    if (!m_refreshtoken.isEmpty() && !m_clientsecret.isEmpty())
+    if (!refreshtoken.isEmpty() && !clientsecret.isEmpty())
     {
         // Refresh token instead of granting if already granted
-        qInfo() << "SpotifyAPI: Refreshing authorization tokens.";
-        m_oauth2->refreshAccessToken();
+        info("Refreshing authorization tokens.");
+        oauth2->refreshAccessToken();
 
         QTimer timer;
         timer.setSingleShot(true);
         QEventLoop loop;
-        connect(m_oauth2, &QOAuth2AuthorizationCodeFlow::statusChanged, &loop, &QEventLoop::quit);
+        connect(oauth2, &QOAuth2AuthorizationCodeFlow::statusChanged, &loop, &QEventLoop::quit);
         connect(&timer, &QTimer::timeout, &loop, &QEventLoop::quit);
         timer.start(1000);
         loop.exec();
 
         // If authenticated by refreshtoken
-        if (timer.isActive() && m_authenticated && !m_expired)
+        if (timer.isActive() && authenticated && !expired)
             return;
     }
 
     // If a grant already initiated, don't perform another one for a while
-    if (m_granting)
+    if (granting)
         return;
 
-    m_granting = true;
+    granting = true;
     // 1 minute grant timeout
-    QTimer::singleShot(60000, [=]() { m_granting = false; });
+    QTimer::singleShot(60000, [=]() {
+        granting = false;
+    });
 
-    qInfo() << "SpotifyAPI: Obtaining Authorization grant.";
-    m_oauth2->grant();
+    info("Obtaining Authorization grant.");
+    oauth2->grant();
 }
 
-void SpotifyAPI::setClientIds(QString clientid, QString clientsecret)
+void SpotifyAPI::SetClientIds(QString cid, QString csc)
 {
-    if (m_clientid != clientid)
+    if (clientid != cid)
     {
-        m_clientid = clientid;
-        m_oauth2->setClientIdentifier(m_clientid);
+        clientid = cid;
+        oauth2->setClientIdentifier(clientid);
     }
 
-    if (m_clientsecret != clientsecret)
+    if (clientsecret != csc)
     {
-        m_clientsecret = clientsecret;
-        m_oauth2->setClientIdentifierSharedKey(m_clientsecret);
+        clientsecret = csc;
+        oauth2->setClientIdentifierSharedKey(clientsecret);
     }
 }
 
-bool SpotifyAPI::execute(SpotifyAPI::Command cmd, quasar_data_handle output, QString args)
+bool SpotifyAPI::Execute(SpotifyAPI::Command cmd, quasar_data_handle output, char* args)
 {
     // check expiry
     auto curr = QDateTime::currentDateTime();
-    if (curr > m_oauth2->expirationAt())
+    if (curr > oauth2->expirationAt())
     {
         // renew if token expired
-        m_expired = true;
+        expired = true;
         grant();
     }
 
-    if (!m_authenticated || m_expired)
+    if (!authenticated || expired)
     {
-        qWarning() << "SpotifyAPI: Unauthenticated or expired access token";
+        qWarning() << "Unauthenticated or expired access token";
         return false;
     }
 
@@ -180,11 +220,11 @@ bool SpotifyAPI::execute(SpotifyAPI::Command cmd, quasar_data_handle output, QSt
     dt.processing = true;
 
     // Process command
-    const auto cmdinfo = m_infomap[cmd];
+    const auto&    cmdinfo = m_infomap[cmd];
 
-    auto oargs = QJsonDocument::fromJson(args.toUtf8()).object();
+    jsoncons::json oargs   = args ? jsoncons::json::parse(args) : jsoncons::json();
 
-    QUrlQuery query;
+    QUrlQuery      query;
 
     // Validate args
     convertArgToQuery(oargs, query, "device_id");
@@ -192,55 +232,60 @@ bool SpotifyAPI::execute(SpotifyAPI::Command cmd, quasar_data_handle output, QSt
     switch (cmd)
     {
         case VOLUME:
-        {
-            if (!checkArgsForKey(oargs, "volume_percent", cmdinfo.src, output))
-                return false;
+            {
+                if (!checkArgsForKey(oargs, "volume_percent", cmdinfo.src, output))
+                    return false;
 
-            convertArgToQuery(oargs, query, "volume_percent");
-            break;
-        }
+                convertArgToQuery(oargs, query, "volume_percent");
+                break;
+            }
 
         case RECENTLY_PLAYED:
-        {
-            convertArgToQuery(oargs, query, "limit");
-            convertArgToQuery(oargs, query, "after");
-            convertArgToQuery(oargs, query, "before");
-            break;
-        }
+            {
+                convertArgToQuery(oargs, query, "limit");
+                convertArgToQuery(oargs, query, "after");
+                convertArgToQuery(oargs, query, "before");
+                break;
+            }
 
         case REPEAT:
-        {
-            if (!checkArgsForKey(oargs, "state", cmdinfo.src, output))
-                return false;
+            {
+                if (!checkArgsForKey(oargs, "state", cmdinfo.src, output))
+                    return false;
 
-            convertArgToQuery(oargs, query, "state");
-            break;
-        }
+                convertArgToQuery(oargs, query, "state");
+                break;
+            }
 
         case SEEK:
-        {
-            if (!checkArgsForKey(oargs, "position_ms", cmdinfo.src, output))
-                return false;
+            {
+                if (!checkArgsForKey(oargs, "position_ms", cmdinfo.src, output))
+                    return false;
 
-            convertArgToQuery(oargs, query, "position_ms");
-            break;
-        }
+                convertArgToQuery(oargs, query, "position_ms");
+                break;
+            }
 
         case SHUFFLE:
-        {
-            if (!checkArgsForKey(oargs, "state", cmdinfo.src, output))
-                return false;
+            {
+                if (!checkArgsForKey(oargs, "state", cmdinfo.src, output))
+                    return false;
 
-            convertArgToQuery(oargs, query, "state");
-            break;
-        }
+                convertArgToQuery(oargs, query, "state");
+                break;
+            }
 
         default:
             break;
     }
 
     // Process args into data if any
-    auto parameters = oargs.toVariantMap();
+    QVariantMap parameters;
+
+    for (const auto& member : oargs.object_range())
+    {
+        parameters.insert(QString::fromStdString(member.key()), QVariant::fromValue(QString::fromStdString(member.value().as_string())));
+    }
 
     // Create query url
     QUrl cmdurl = apiUrl.url() + cmdinfo.api + "?" + query.toString(QUrl::FullyEncoded);
@@ -248,93 +293,71 @@ bool SpotifyAPI::execute(SpotifyAPI::Command cmd, quasar_data_handle output, QSt
     switch (cmdinfo.ptcl)
     {
         case GET:
-        {
-            QNetworkReply* reply = m_oauth2->get(cmdurl, parameters);
-            connect(reply, &QNetworkReply::finished, [=]() {
-                reply->deleteLater();
+            {
+                QNetworkReply* reply = oauth2->get(cmdurl, parameters);
+                connect(reply, &QNetworkReply::finished, [=]() {
+                    reply->deleteLater();
 
-                auto& dt = m_queue[cmd];
+                    auto& dt      = m_queue[cmd];
 
-                dt.data_ready = true;
-                dt.processing = false;
+                    dt.data_ready = true;
+                    dt.processing = false;
 
-                if (reply->error() != QNetworkReply::NoError)
-                {
-                    qWarning() << "SpotifyAPI:" << reply->error() << reply->errorString();
-                    dt.errs.append(reply->errorString());
-                    quasar_signal_data_ready(m_handle, cmdinfo.src.toUtf8().data());
-                    return;
-                }
+                    if (reply->error() != QNetworkReply::NoError)
+                    {
+                        qWarning() << "SpotifyAPI:" << reply->error() << reply->errorString();
+                        dt.errs.append(reply->errorString());
+                        quasar_signal_data_ready(handle, cmdinfo.src.c_str());
+                        return;
+                    }
 
-                auto code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+                    auto code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
 
-                if (code != 204)
-                {
-                    const auto json = reply->readAll();
-                    dt.data         = json;
-                }
+                    if (code != 204)
+                    {
+                        const auto json = reply->readAll();
+                        dt.data         = json;
+                    }
 
-                quasar_signal_data_ready(m_handle, cmdinfo.src.toUtf8().data());
-            });
+                    quasar_signal_data_ready(handle, cmdinfo.src.c_str());
+                });
 
-            return true;
-        }
+                return true;
+            }
 
         case PUT:
         case POST:
-        {
-            QNetworkReply* reply = (cmdinfo.ptcl == PUT ? m_oauth2->put(cmdurl, parameters) : m_oauth2->post(cmdurl, parameters));
-            connect(reply, &QNetworkReply::finished, [=]() {
-                reply->deleteLater();
+            {
+                QNetworkReply* reply = (cmdinfo.ptcl == PUT ? oauth2->put(cmdurl, parameters) : oauth2->post(cmdurl, parameters));
+                connect(reply, &QNetworkReply::finished, [=]() {
+                    reply->deleteLater();
 
-                auto& dt = m_queue[cmd];
+                    auto& dt      = m_queue[cmd];
 
-                dt.data_ready = true;
-                dt.processing = false;
+                    dt.data_ready = true;
+                    dt.processing = false;
 
-                if (reply->error() != QNetworkReply::NoError)
-                {
-                    qWarning() << "SpotifyAPI:" << reply->error() << reply->errorString();
-                    dt.errs.append(reply->errorString());
-                    quasar_signal_data_ready(m_handle, cmdinfo.src.toUtf8().data());
-                    return;
-                }
+                    if (reply->error() != QNetworkReply::NoError)
+                    {
+                        qWarning() << "SpotifyAPI:" << reply->error() << reply->errorString();
+                        dt.errs.append(reply->errorString());
+                        quasar_signal_data_ready(handle, cmdinfo.src.c_str());
+                        return;
+                    }
 
-                auto code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+                    auto code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
 
-                if (code != 204)
-                {
-                    dt.errs.append(QString::number(code));
-                }
+                    if (code != 204)
+                    {
+                        dt.errs.append(QString::number(code));
+                    }
 
-                quasar_signal_data_ready(m_handle, cmdinfo.src.toUtf8().data());
-            });
+                    quasar_signal_data_ready(handle, cmdinfo.src.c_str());
+                });
 
-            return true;
-        }
+                return true;
+            }
     }
 
     return false;
-}
-
-bool SpotifyAPI::checkArgsForKey(const QJsonObject& args, const QString& key, const QString& cmd, quasar_data_handle output)
-{
-    if (!args.contains(key))
-    {
-        qWarning() << "SpotifyAPI: Argument '" << key << "' required for the '" << cmd << "' endpoint.";
-        QString m{"Argument '" + key + "' required."};
-        quasar_append_error(output, m.toUtf8().data());
-        return false;
-    }
-
-    return true;
-}
-
-void SpotifyAPI::convertArgToQuery(QJsonObject& args, QUrlQuery& query, const QString& convert)
-{
-    if (args.contains(convert))
-    {
-        auto v = args.take(convert);
-        query.addQueryItem(convert, v.toString());
-    }
 }

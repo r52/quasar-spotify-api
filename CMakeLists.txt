@@ -1,41 +1,28 @@
-cmake_minimum_required(VERSION 3.9)
+cmake_minimum_required(VERSION 3.21)
 
 project(quasar-spotify-api)
 
-set(default_build_type "Release")
-
-if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
-    message(STATUS "Setting build type to '${default_build_type}' as none was specified.")
-    set(CMAKE_BUILD_TYPE "${default_build_type}" CACHE
-        STRING "Choose the type of build." FORCE)
-
-    set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
-        "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
-endif()
-
-if(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
-    message("DEBUG BUILD")
-else()
-    add_definitions(-DQT_MESSAGELOGCONTEXT)
-    add_definitions(-DNDEBUG)
-endif()
-
-set(CMAKE_SKIP_BUILD_RPATH FALSE)
-set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
-set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/quasar")
-set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
-
 set(CMAKE_AUTOMOC ON)
 
-find_package(Qt5 5.12 COMPONENTS Core Gui Network NetworkAuth REQUIRED)
+find_package(fmt CONFIG REQUIRED)
+find_package(jsoncons CONFIG REQUIRED)
+find_package(Qt6 6.4 CONFIG COMPONENTS Core Gui Network NetworkAuth REQUIRED)
+qt_standard_project_setup()
 
-set(SOURCES
+add_library(quasar-spotify-api MODULE
     quasar-spotify-api.cpp
-    spotifyapi.cpp)
+    spotifyapi.cpp
+)
+target_compile_features(quasar-spotify-api PRIVATE cxx_std_20)
+target_compile_definitions(quasar-spotify-api PRIVATE JSONCONS_HAS_STD_SPAN JSONCONS_HAS_STD_ENDIAN)
 
-add_library(quasar-spotify-api SHARED ${SOURCES})
-target_compile_features(quasar-spotify-api PUBLIC cxx_std_17)
-target_link_libraries(quasar-spotify-api Qt5::Core Qt5::Gui Qt5::Network Qt5::NetworkAuth)
-target_include_directories(quasar-spotify-api PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} quasar/extension-api/)
+target_link_libraries(quasar-spotify-api PRIVATE Qt6::Core Qt6::Gui Qt6::Network Qt6::NetworkAuth)
+target_link_libraries(quasar-spotify-api PRIVATE fmt::fmt)
+target_link_libraries(quasar-spotify-api PRIVATE jsoncons)
+target_link_libraries(quasar-spotify-api PRIVATE quasar extension-api)
+
+add_custom_command(TARGET quasar-spotify-api POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:quasar-spotify-api> $<TARGET_FILE_DIR:quasar>/extensions/quasar-spotify-api.dll
+)
 
 install(TARGETS quasar-spotify-api DESTINATION quasar/extensions)

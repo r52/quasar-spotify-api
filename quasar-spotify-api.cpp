@@ -1,141 +1,143 @@
 #include <memory>
 
 #include <extension_api.h>
-#include <extension_support.h>
+#include <extension_support.hpp>
 
 #include "spotifyapi.h"
 
-#define EXT_FULLNAME "Quasar Spotify API"
-#define EXT_NAME "spotify-api"
+#include <QThread>
 
-#define qlog(l, f, ...)                                             \
-    {                                                               \
-        char msg[256];                                              \
-        snprintf(msg, sizeof(msg), EXT_NAME ": " f, ##__VA_ARGS__); \
-        quasar_log(l, msg);                                         \
-    }
-
-#define debug(f, ...) qlog(QUASAR_LOG_DEBUG, f, ##__VA_ARGS__)
-#define info(f, ...) qlog(QUASAR_LOG_INFO, f, ##__VA_ARGS__)
-#define warn(f, ...) qlog(QUASAR_LOG_WARNING, f, ##__VA_ARGS__)
-#define crit(f, ...) qlog(QUASAR_LOG_CRITICAL, f, ##__VA_ARGS__)
+#include <fmt/core.h>
 
 // These correspond to the Spotify Player API's endpoint names
 // https://developer.spotify.com/documentation/web-api/reference-beta/
-quasar_data_source_t sources[] = {{"currently-playing", QUASAR_POLLING_CLIENT, 2000, 0}, // GET
-                                  {"volume", QUASAR_POLLING_CLIENT, 0, 0},               // PUT
-                                  {"player", QUASAR_POLLING_CLIENT, 2000, 0},            // GET
-                                  {"previous", QUASAR_POLLING_CLIENT, 0, 0},             // POST
-                                  {"recently-played", QUASAR_POLLING_CLIENT, 2000, 0},   // GET
-                                  {"next", QUASAR_POLLING_CLIENT, 0, 0},                 // POST
-                                  {"pause", QUASAR_POLLING_CLIENT, 0, 0},                // PUT
-                                  {"repeat", QUASAR_POLLING_CLIENT, 0, 0},               // PUT
-                                  {"play", QUASAR_POLLING_CLIENT, 0, 0},                 // PUT
-                                  {"seek", QUASAR_POLLING_CLIENT, 0, 0},                 // PUT
-                                  {"shuffle", QUASAR_POLLING_CLIENT, 0, 0},              // PUT
-                                  {"devices", QUASAR_POLLING_CLIENT, 2000, 0}};          // GET
+quasar_data_source_t sources[] = {
+    {"currently-playing", QUASAR_POLLING_CLIENT, 2000, 0}, // GET
+    {           "volume", QUASAR_POLLING_CLIENT,    0, 0}, // PUT
+    {           "player", QUASAR_POLLING_CLIENT, 2000, 0}, // GET
+    {         "previous", QUASAR_POLLING_CLIENT,    0, 0}, // POST
+    {  "recently-played", QUASAR_POLLING_CLIENT, 2000, 0}, // GET
+    {             "next", QUASAR_POLLING_CLIENT,    0, 0}, // POST
+    {            "pause", QUASAR_POLLING_CLIENT,    0, 0}, // PUT
+    {           "repeat", QUASAR_POLLING_CLIENT,    0, 0}, // PUT
+    {             "play", QUASAR_POLLING_CLIENT,    0, 0}, // PUT
+    {             "seek", QUASAR_POLLING_CLIENT,    0, 0}, // PUT
+    {          "shuffle", QUASAR_POLLING_CLIENT,    0, 0}, // PUT
+    {          "devices", QUASAR_POLLING_CLIENT, 2000, 0}  // GET
+};
 
 namespace
 {
-    quasar_ext_handle m_handle       = nullptr;
-    QString           m_clientid     = "";
-    QString           m_clientsecret = "";
+    quasar_ext_handle                               extHandle      = nullptr;
+    QString                                         m_clientid     = "";
+    QString                                         m_clientsecret = "";
 
-    std::unique_ptr<SpotifyAPI>                     m_api;
-    std::unordered_map<size_t, SpotifyAPI::Command> m_cmdmap;
-}
+    SpotifyAPI*                                     api;
+    std::unordered_map<size_t, SpotifyAPI::Command> commandMap;
+}  // namespace
 
 bool quasar_spotify_init(quasar_ext_handle handle)
 {
     // init sources
-    m_cmdmap[sources[0].uid]  = SpotifyAPI::CURRENTLY_PLAYING;
-    m_cmdmap[sources[1].uid]  = SpotifyAPI::VOLUME;
-    m_cmdmap[sources[2].uid]  = SpotifyAPI::PLAYER;
-    m_cmdmap[sources[3].uid]  = SpotifyAPI::PREVIOUS;
-    m_cmdmap[sources[4].uid]  = SpotifyAPI::RECENTLY_PLAYED;
-    m_cmdmap[sources[5].uid]  = SpotifyAPI::NEXT;
-    m_cmdmap[sources[6].uid]  = SpotifyAPI::PAUSE;
-    m_cmdmap[sources[7].uid]  = SpotifyAPI::REPEAT;
-    m_cmdmap[sources[8].uid]  = SpotifyAPI::PLAY;
-    m_cmdmap[sources[9].uid]  = SpotifyAPI::SEEK;
-    m_cmdmap[sources[10].uid] = SpotifyAPI::SHUFFLE;
-    m_cmdmap[sources[11].uid] = SpotifyAPI::DEVICES;
+    commandMap[sources[0].uid]  = SpotifyAPI::CURRENTLY_PLAYING;
+    commandMap[sources[1].uid]  = SpotifyAPI::VOLUME;
+    commandMap[sources[2].uid]  = SpotifyAPI::PLAYER;
+    commandMap[sources[3].uid]  = SpotifyAPI::PREVIOUS;
+    commandMap[sources[4].uid]  = SpotifyAPI::RECENTLY_PLAYED;
+    commandMap[sources[5].uid]  = SpotifyAPI::NEXT;
+    commandMap[sources[6].uid]  = SpotifyAPI::PAUSE;
+    commandMap[sources[7].uid]  = SpotifyAPI::REPEAT;
+    commandMap[sources[8].uid]  = SpotifyAPI::PLAY;
+    commandMap[sources[9].uid]  = SpotifyAPI::SEEK;
+    commandMap[sources[10].uid] = SpotifyAPI::SHUFFLE;
+    commandMap[sources[11].uid] = SpotifyAPI::DEVICES;
 
-    m_handle = handle;
+    api                         = new SpotifyAPI(handle, m_clientid, m_clientsecret);
 
-    m_api.reset(new SpotifyAPI(handle, m_clientid, m_clientsecret));
+    QMetaObject::invokeMethod(api, [&] {
+        api->grant();
+    });
 
-    m_api->grant();
-
-    return (m_api.get() != nullptr);
+    return (api != nullptr);
 }
 
 bool quasar_spotify_shutdown(quasar_ext_handle handle)
 {
-    if (m_api)
-    {
-        m_api.reset();
-    }
+    api->deleteLater();
+    api = nullptr;
 
     return true;
 }
 
 bool quasar_spotify_get_data(size_t srcUid, quasar_data_handle hData, char* args)
 {
-    if (!m_api)
+    if (!api)
     {
         crit("Tried to call get_data after failed initialization.");
         return false;
     }
 
-    if (!m_api->authenticated())
+    if (!api->IsAuthenticated())
     {
         warn("SpotifyAPI is not authenticated.");
         return false;
     }
 
-    return m_api->execute(m_cmdmap[srcUid], hData, args);
+    bool ret = false;
+
+    // Run this stuff on the main thread
+    QMetaObject::invokeMethod(
+        api,
+        [&] {
+            return api->Execute(commandMap[srcUid], hData, args);
+        },
+        Qt::BlockingQueuedConnection,
+        &ret);
+
+    return ret;
 }
 
-quasar_settings_t* quasar_spotify_create_settings()
+quasar_settings_t* quasar_spotify_create_settings(quasar_ext_handle handle)
 {
-    auto settings = quasar_create_settings();
+    extHandle     = handle;
 
-    quasar_add_string(settings, "clientid", "Client ID", "", true);
-    quasar_add_string(settings, "clientsecret", "Client Secret", "", true);
+    auto settings = quasar_create_settings(handle);
+
+    quasar_add_string_setting(handle, settings, "clientid", "Spotify API Client ID", "", true);
+    quasar_add_string_setting(handle, settings, "clientsecret", "Spotify API Client Secret", "", true);
 
     return settings;
 }
 
 void quasar_spotify_update_settings(quasar_settings_t* settings)
 {
-    char buf[512];
+    auto    cid          = quasar_get_string_setting_hpp(extHandle, settings, "clientid");
+    QString clientid     = QString::fromStdString(std::string{cid});
 
-    quasar_get_string(settings, "clientid", buf, sizeof(buf));
-    QString clientid = buf;
-
-    quasar_get_string(settings, "clientsecret", buf, sizeof(buf));
-    QString clientsecret = buf;
+    auto    csc          = quasar_get_string_setting_hpp(extHandle, settings, "clientsecret");
+    QString clientsecret = QString::fromStdString(std::string{csc});
 
     if (clientid != m_clientid || clientsecret != m_clientsecret)
     {
         m_clientid     = clientid;
         m_clientsecret = clientsecret;
 
-        if (m_api)
+        if (api)
         {
-            m_api->setClientIds(m_clientid, m_clientsecret);
+            api->SetClientIds(m_clientid, m_clientsecret);
 
-            if (!m_api->authenticated())
+            if (!api->IsAuthenticated())
             {
-                m_api->grant();
+                QMetaObject::invokeMethod(api, [&] {
+                    api->grant();
+                });
             }
         }
     }
 }
 
 quasar_ext_info_fields_t fields =
-    {EXT_NAME, EXT_FULLNAME, "2.0", "r52", "Provides Spotify API endpoints for Quasar", "https://github.com/r52/quasar-spotify-api"};
+    {EXT_NAME, EXT_FULLNAME, "3.0", "r52", "Provides Spotify API endpoints for Quasar", "https://github.com/r52/quasar-spotify-api"};
 
 quasar_ext_info_t info = {
     QUASAR_API_VERSION,
@@ -144,11 +146,11 @@ quasar_ext_info_t info = {
     std::size(sources),
     sources,
 
-    quasar_spotify_init,            // init
-    quasar_spotify_shutdown,        // shutdown
-    quasar_spotify_get_data,        // data
-    quasar_spotify_create_settings, // create setting
-    quasar_spotify_update_settings  // update setting
+    quasar_spotify_init,             // init
+    quasar_spotify_shutdown,         // shutdown
+    quasar_spotify_get_data,         // data
+    quasar_spotify_create_settings,  // create setting
+    quasar_spotify_update_settings   // update setting
 };
 
 quasar_ext_info_t* quasar_ext_load(void)

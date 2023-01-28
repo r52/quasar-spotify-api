@@ -100,6 +100,10 @@ SpotifyAPI::SpotifyAPI(quasar_ext_handle exthandle, QString cid, QString csc) :
         quasar_set_storage_string(handle, "refreshtoken", ba.data());
     });
 
+    connect(oauth2, &QOAuth2AuthorizationCodeFlow::error, [](const QString& error, const QString& errorDescription, const QUrl& uri) {
+        warn("OAuth error {} ({}): {}", error.toStdString(), uri.toString().toStdString(), errorDescription.toStdString());
+    });
+
     oauth2->setModifyParametersFunction([this](QAbstractOAuth::Stage stage, QMultiMap<QString, QVariant>* parameters) {
         if (stage == QAbstractOAuth::Stage::RefreshingAccessToken)
         {

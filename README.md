@@ -9,10 +9,11 @@ Spotify API extension and sample widget for [Quasar](https://github.com/r52/quas
 1. Goto the [**Spotify Developer Dashboard**](https://developer.spotify.com/dashboard/) and log into your Spotify account.
 2. Click **Create an App**, and give it an App name and description of your choosing.
 3. Once the app is registered, click **Edit Settings**, and add `http://127.0.0.1:1337/callback` under **Redirect URIs**.
-4. (Re)start Quasar, then right click the Quasar tray icon, select **Settings > spotify-api**.
-5. Under the **Settings** tab, copy your **Client ID** and **Client Secret** from the Dashboard to the fields, and click **OK**.
-6. You will be sent to the app authorization page on your browser. Authorize the app.
-7. Load your widgets that uses quasar-spotify-api.
+4. Under **Users and Access**, add your Spotify account.
+5. (Re)start Quasar, then right click the Quasar tray icon, select **Settings > spotify-api**.
+6. Under the **Settings** tab, copy your **Client ID** and **Client Secret** from the Dashboard to the fields, and click **OK**.
+7. You will be sent to the app authorization page on your browser. Authorize the app.
+8. Load your widgets that uses quasar-spotify-api.
 
 Since the Spotify API is rate limited for each App, this extension does not provide its own Client ID/Secret. [Register your own App](https://developer.spotify.com/dashboard/) on the Spotify Developer Dashboard and set up your Client ID and Secret in Quasar settings. Make sure whitelisted Redirect URIs is set to `http://127.0.0.1:1337/callback`
 

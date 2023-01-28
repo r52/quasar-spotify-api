@@ -178,7 +178,7 @@ bool SpotifyAPI::Execute(SpotifyAPI::Command cmd, quasar_data_handle output, cha
 
     if (!authenticated || expired)
     {
-        qWarning() << "Unauthenticated or expired access token";
+        warn("Unauthenticated or expired access token");
         return false;
     }
 
@@ -305,8 +305,9 @@ bool SpotifyAPI::Execute(SpotifyAPI::Command cmd, quasar_data_handle output, cha
 
                     if (reply->error() != QNetworkReply::NoError)
                     {
-                        qWarning() << "SpotifyAPI:" << reply->error() << reply->errorString();
-                        dt.errs.append(reply->errorString());
+                        auto error = reply->errorString();
+                        warn("Error {}: {}", reply->error(), error.toStdString());
+                        dt.errs.append(error);
                         quasar_signal_data_ready(handle, cmdinfo.src.c_str());
                         return;
                     }
@@ -339,8 +340,9 @@ bool SpotifyAPI::Execute(SpotifyAPI::Command cmd, quasar_data_handle output, cha
 
                     if (reply->error() != QNetworkReply::NoError)
                     {
-                        qWarning() << "SpotifyAPI:" << reply->error() << reply->errorString();
-                        dt.errs.append(reply->errorString());
+                        auto error = reply->errorString();
+                        warn("Error {}: {}", reply->error(), error.toStdString());
+                        dt.errs.append(error);
                         quasar_signal_data_ready(handle, cmdinfo.src.c_str());
                         return;
                     }
@@ -349,6 +351,7 @@ bool SpotifyAPI::Execute(SpotifyAPI::Command cmd, quasar_data_handle output, cha
 
                     if (code != 204)
                     {
+                        warn("Server returned {}", code);
                         dt.errs.append(QString::number(code));
                     }
 

@@ -136,10 +136,12 @@ void quasar_spotify_update_settings(quasar_settings_t* settings)
     }
 }
 
-quasar_ext_info_fields_t fields =
-    {EXT_NAME, EXT_FULLNAME, "3.0", "r52", "Provides Spotify API endpoints for Quasar", "https://github.com/r52/quasar-spotify-api"};
+quasar_ext_info_fields_t fields = {.version = "3.0",
+    .author                                 = "r52",
+    .description                            = "Provides Spotify API endpoints for Quasar",
+    .url                                    = "https://github.com/r52/quasar-spotify-api"};
 
-quasar_ext_info_t info = {
+quasar_ext_info_t        info   = {
     QUASAR_API_VERSION,
     &fields,
 
@@ -155,6 +157,8 @@ quasar_ext_info_t info = {
 
 quasar_ext_info_t* quasar_ext_load(void)
 {
+    strncpy_s(fields.name, sizeof(fields.name), EXT_NAME.data(), EXT_NAME.size());
+    strncpy_s(fields.fullname, sizeof(fields.fullname), EXT_FULLNAME.data(), EXT_FULLNAME.size());
     return &info;
 }
 

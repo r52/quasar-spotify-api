@@ -8,8 +8,8 @@
 
 #include <extension_api.h>
 
-#define EXT_FULLNAME "Quasar Spotify API"
-#define EXT_NAME     "spotify-api"
+constexpr std::string_view EXT_FULLNAME = "Quasar Spotify API";
+constexpr std::string_view EXT_NAME     = "spotify-api";
 
 #define qlog(l, ...)                                                      \
   {                                                                       \

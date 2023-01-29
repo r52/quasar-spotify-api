@@ -157,8 +157,8 @@ quasar_ext_info_t        info   = {
 
 quasar_ext_info_t* quasar_ext_load(void)
 {
-    strncpy_s(fields.name, sizeof(fields.name), EXT_NAME.data(), EXT_NAME.size());
-    strncpy_s(fields.fullname, sizeof(fields.fullname), EXT_FULLNAME.data(), EXT_FULLNAME.size());
+    strncpy(fields.name, EXT_NAME.data(), sizeof(fields.name));
+    strncpy(fields.fullname, EXT_FULLNAME.data(), sizeof(fields.fullname));
     return &info;
 }
 

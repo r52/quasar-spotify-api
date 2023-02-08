@@ -29,7 +29,7 @@ This repository should be built as a part of the main [Quasar](https://github.co
 
 - [Visual Studio 2022 or later](https://visualstudio.microsoft.com/).
 - [Qt 6.4 or later, with the optional Network Authorization module](http://www.qt.io/).
-- [CMake 3.21 or later](https://cmake.org/)
+- [CMake 3.23 or later](https://cmake.org/)
 
 Build as a part of the main [Quasar](https://github.com/r52/quasar) CMake project with the option `BUILD_SPOTIFY_API` set to `ON`.
 
@@ -39,7 +39,7 @@ Build as a part of the main [Quasar](https://github.com/r52/quasar) CMake projec
 
 - Qt 6.4 or later, with the optional qtnetworkauth module
 - GCC 11+ or Clang 15+
-- CMake 3.21+
+- CMake 3.23+
 
 Build as a part of the main [Quasar](https://github.com/r52/quasar) CMake project with the option `BUILD_SPOTIFY_API` set to `ON`.
 

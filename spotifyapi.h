@@ -78,7 +78,7 @@ private:
         bool        processing;
     };
 
-    std::unordered_map<Command, cmd_info_t> m_infomap = {
+    const std::unordered_map<Command, cmd_info_t> m_infomap = {
         {CURRENTLY_PLAYING, {GET, "currently-playing", "/currently-playing"}},
         {           VOLUME,                       {PUT, "volume", "/volume"}},
         {           PLAYER,                              {GET, "player", ""}},

@@ -224,7 +224,7 @@ bool SpotifyAPI::Execute(SpotifyAPI::Command cmd, quasar_data_handle output, cha
     dt.processing = true;
 
     // Process command
-    const auto&    cmdinfo = m_infomap[cmd];
+    const auto&    cmdinfo = m_infomap.at(cmd);
 
     jsoncons::json oargs   = args ? jsoncons::json::parse(args) : jsoncons::json();
 

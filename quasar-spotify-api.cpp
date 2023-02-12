@@ -88,7 +88,7 @@ bool quasar_spotify_get_data(size_t srcUid, quasar_data_handle hData, char* args
     // Run this stuff on the main thread
     QMetaObject::invokeMethod(
         api,
-        [=, cmd = commandMap[srcUid]] {
+        [=, cmd = commandMap.at(srcUid)] {
             return api->Execute(cmd, hData, args);
         },
         Qt::BlockingQueuedConnection,

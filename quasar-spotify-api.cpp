@@ -136,7 +136,7 @@ void quasar_spotify_update_settings(quasar_settings_t* settings)
     }
 }
 
-quasar_ext_info_fields_t fields = {.version = "3.0",
+quasar_ext_info_fields_t fields = {.version = "3.0.1",
     .author                                 = "r52",
     .description                            = "Provides Spotify API endpoints for Quasar",
     .url                                    = "https://github.com/r52/quasar-spotify-api"};

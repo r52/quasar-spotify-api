@@ -6,7 +6,7 @@ set(CMAKE_AUTOMOC ON)
 
 find_package(fmt CONFIG REQUIRED)
 find_package(jsoncons CONFIG REQUIRED)
-find_package(Qt6 6.4 CONFIG COMPONENTS Core Gui Network NetworkAuth REQUIRED)
+find_package(Qt6 CONFIG COMPONENTS Core Gui Network NetworkAuth REQUIRED)
 qt_standard_project_setup()
 
 add_library(quasar-spotify-api MODULE

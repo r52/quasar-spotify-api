@@ -310,7 +310,7 @@ bool SpotifyAPI::Execute(SpotifyAPI::Command cmd, quasar_data_handle output, cha
                     if (reply->error() != QNetworkReply::NoError)
                     {
                         auto error = reply->errorString();
-                        warn("Error {}: {}", reply->error(), error.toStdString());
+                        warn("Error {}: {}", (int) reply->error(), error.toStdString());
                         dt.errs.append(error);
                         quasar_signal_data_ready(handle, cmdinfo.src.c_str());
                         return;
@@ -345,7 +345,7 @@ bool SpotifyAPI::Execute(SpotifyAPI::Command cmd, quasar_data_handle output, cha
                     if (reply->error() != QNetworkReply::NoError)
                     {
                         auto error = reply->errorString();
-                        warn("Error {}: {}", reply->error(), error.toStdString());
+                        warn("Error {}: {}", (int) reply->error(), error.toStdString());
                         dt.errs.append(error);
                         quasar_signal_data_ready(handle, cmdinfo.src.c_str());
                         return;
